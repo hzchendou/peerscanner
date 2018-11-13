@@ -3,6 +3,7 @@ package com.hzchendou.handler;
 import java.io.ByteArrayOutputStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 import com.hzchendou.model.AbstractBitcoinMessage;
 import com.hzchendou.model.VersionMessage;
@@ -58,6 +59,16 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
         seekPastMagicBytes((ByteBuf) msg);
         AbstractBitcoinMessage.BitcoinPacketHeader header = new AbstractBitcoinMessage.BitcoinPacketHeader((ByteBuf) msg);
         System.out.println("收到数据:" + header.command);
+        //发送verack消息
+        if (Objects.equals("version", header.command)) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            VersionMessage message = new VersionMessage();
+            message.serialize("verack", new byte[0], out);
+            ByteBuf resp = Unpooled.copiedBuffer(out.toByteArray());
+            ctx.write(resp);
+            ctx.flush();
+            System.out.println("完成verack消息发送:");
+        }
     }
 
 
