@@ -1,7 +1,10 @@
 package com.hzchendou.handler;
 
 import java.io.ByteArrayOutputStream;
+import java.nio.BufferUnderflowException;
+import java.nio.ByteBuffer;
 
+import com.hzchendou.model.AbstractBitcoinMessage;
 import com.hzchendou.model.VersionMessage;
 import com.hzchendou.utils.UnsafeByteArrayOutputStream;
 
@@ -51,8 +54,10 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
      */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        super.channelRead(ctx, msg);
-        System.out.println("收到数据");
+//        super.channelRead(ctx, msg);
+        seekPastMagicBytes((ByteBuf) msg);
+        AbstractBitcoinMessage.BitcoinPacketHeader header = new AbstractBitcoinMessage.BitcoinPacketHeader((ByteBuf) msg);
+        System.out.println("收到数据:" + header.command);
     }
 
 
@@ -66,5 +71,32 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         super.exceptionCaught(ctx, cause);
+    }
+
+    /**
+     * 跳过魔数
+     *
+     * @param in
+     * @throws BufferUnderflowException
+     */
+    public void seekPastMagicBytes(ByteBuf in) throws BufferUnderflowException {
+        int magicCursor = 3;  // Which byte of the magic we're looking for currently.
+        while (true) {
+            byte b = in.readByte();
+            // We're looking for a run of bytes that is the same as the packet magic but we want to ignore partial
+            // magics that aren't complete. So we keep track of where we're up to with magicCursor.
+            byte expectedByte = (byte) (0xFF & AbstractBitcoinMessage.packetMagic >>> (magicCursor * 8));
+            if (b == expectedByte) {
+                magicCursor--;
+                if (magicCursor < 0) {
+                    // We found the magic sequence.
+                    return;
+                } else {
+                    // We still have further to go to find the next message.
+                }
+            } else {
+                magicCursor = 3;
+            }
+        }
     }
 }

@@ -24,8 +24,6 @@ public class VersionMessage extends AbstractBitcoinMessage {
     /** The value that is prepended to the subVer field of this application. */
     public static final String LIBRARY_SUBVER = "/bitcoinj:" + BITCOINJ_VERSION + "/";
 
-    private static final int COMMAND_LEN = 12;
-
     /**
      * The network address of the node receiving this message.
      */
