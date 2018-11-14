@@ -47,7 +47,7 @@ public class BitcoinP2PClient {
 
     public static void main(String[] args) throws InterruptedException {
         InetSocketAddress[] address = DNSDiscovery.defaultDnsDiscovery().getPeers(0, 5000, TimeUnit.MILLISECONDS);
-        System.out.format("connect to %s:%s", address[0].getAddress().getHostAddress(), address[0].getPort());
+        System.out.format("connect to %s:%s", address[0].getAddress().getHostAddress(), address[0].getPort()).println();
         new BitcoinP2PClient().connect(address[0]);
     }
 }

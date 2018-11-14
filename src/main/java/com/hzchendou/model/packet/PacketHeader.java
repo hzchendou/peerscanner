@@ -1,6 +1,13 @@
 package com.hzchendou.model.packet;
 
+import static com.hzchendou.model.packet.PacketCommand.COMMAND_LENGTH;
+
 import java.util.Arrays;
+
+import com.hzchendou.utils.TypeUtils;
+import com.hzchendou.utils.Sha256HashUtils;
+
+import io.netty.buffer.ByteBuf;
 
 /**
  * 网络包头部信息.
@@ -19,12 +26,12 @@ public class PacketHeader implements Packet {
     public static final long PACKET_MAGIC = 0xf9beb4d9L;
 
 
-    public static final int HEADER_LENGTH = 4 + PacketCommand.COMMAND_LENGTH + 4 + 4;
+    public static final int HEADER_LENGTH = 4 + COMMAND_LENGTH + 4 + 4;
 
     /**
      * 4字节魔数
      */
-    public long magic;
+    public long magic = 0xf9beb4d9L;
 
     /**
      * 命令符（最大为12字节，转为byte数组时,不足部分用\0补充）
@@ -71,6 +78,38 @@ public class PacketHeader implements Packet {
 
     public void setChecksum(byte[] checksum) {
         this.checksum = checksum;
+    }
+
+    /**
+     * 序列化
+     *
+     * @param buf
+     */
+    public void serializePacket(ByteBuf buf) {
+        byte[] message = getBody();
+        byte[] header = new byte[HEADER_LENGTH];
+        TypeUtils.uint32ToByteArrayBE(magic, header, 0);
+        // The header array is initialized to zero by Java so we don't have to worry about
+        // NULL terminating the string here.
+        for (int i = 0; i < command.length() && i < COMMAND_LENGTH; i++) {
+            header[4 + i] = (byte) (command.codePointAt(i) & 0xFF);
+        }
+        //command
+        TypeUtils.uint32ToByteArrayLE(message.length, header, 4 + COMMAND_LENGTH);
+        //checksum
+        byte[] hash = Sha256HashUtils.hashTwice(message);
+        System.arraycopy(hash, 0, header, 4 + COMMAND_LENGTH + 4, 4);
+        buf.writeBytes(header);
+        buf.writeBytes(message);
+    }
+
+    /**
+     * 获取请求体数据
+     *
+     * @return
+     */
+    public byte[] getBody() {
+        return new byte[0];
     }
 
     @Override
