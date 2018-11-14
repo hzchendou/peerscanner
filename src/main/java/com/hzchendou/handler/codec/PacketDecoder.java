@@ -1,29 +1,15 @@
-/*
- * (C) Copyright 2015-2016 the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Contributors:
- *   ohun@live.cn (夜色)
- */
 
 package com.hzchendou.handler.codec;
 
-import java.nio.BufferUnderflowException;
-import java.nio.ByteBuffer;
+import static com.hzchendou.utils.TypeUtils.readUint32;
+
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import com.hzchendou.model.AbstractBitcoinMessage;
+import com.hzchendou.model.packet.Packet;
+import com.hzchendou.model.packet.PacketCommand;
+import com.hzchendou.model.packet.PacketHeader;
+import com.hzchendou.model.packet.PacketPayload;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -39,67 +25,93 @@ import io.netty.handler.codec.ByteToMessageDecoder;
  * payload(n)
  */
 public final class PacketDecoder extends ByteToMessageDecoder {
-    private static final int maxPacketSize = Integer.MAX_VALUE;
 
+    /**
+     * 包数据解码
+     *
+     * @param ctx
+     * @param in
+     * @param out
+     * @throws Exception
+     */
     @Override
-    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-        decodeHeartbeat(in, out);
+    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
         decodeFrames(in, out);
     }
 
-
-    private void decodeHeartbeat(ByteBuf in, List<Object> out) {
-        //        while (in.isReadable()) {
-        //            if (in.readByte() == Packet.HB_PACKET_BYTE) {
-        //                out.add(Packet.HB_PACKET);
-        //            } else {
-        //                in.readerIndex(in.readerIndex() - 1);
-        //                break;
-        //            }
-        //        }
-    }
-
+    /**
+     * 解码帧数据
+     *
+     * @param in
+     * @param out
+     */
     private void decodeFrames(ByteBuf in, List<Object> out) {
-        //        if (in.readableBytes() >= Packet.HEADER_LEN) {
-        //            //1.记录当前读取位置位置.如果读取到非完整的frame,要恢复到该位置,便于下次读取
-        //            in.markReaderIndex();
-        //
-        //            Packet packet = decodeFrame(in);
-        //            if (packet != null) {
-        //                out.add(packet);
-        //            } else {
-        //                //2.读取到不完整的frame,恢复到最近一次正常读取的位置,便于下次读取
-        //                in.resetReaderIndex();
-        //            }
-        //        }
+        if (in.readableBytes() >= PacketHeader.HEADER_LENGTH) {
+            //1.记录当前读取位置位置.如果读取到非完整的frame,要恢复到该位置,便于下次读取
+            in.markReaderIndex();
+            PacketPayload packet = decodeFrame(in);
+            if (packet != null) {
+                out.add(packet);
+            } else {
+                //2.读取到不完整的frame,恢复到最近一次正常读取的位置,便于下次读取
+                in.resetReaderIndex();
+            }
+        }
     }
-    //
-    //    private Packet decodeFrame(ByteBuf in) {
-    //        int readableBytes = in.readableBytes();
-    //        int bodyLength = in.readInt();
-    //        if (readableBytes < (bodyLength + Packet.HEADER_LEN)) {
-    //            return null;
-    //        }
-    //        if (bodyLength > maxPacketSize) {
-    //            throw new TooLongFrameException("packet body length over limit:" + bodyLength);
-    //        }
-    //        return decodePacket(new Packet(in.readByte()), in, bodyLength);
-    //    }
-    //
-    //    public static Packet decodeFrame(DatagramPacket frame) {
-    //        ByteBuf in = frame.content();
-    //        int readableBytes = in.readableBytes();
-    //        int bodyLength = in.readInt();
-    //        if (readableBytes < (bodyLength + Packet.HEADER_LEN)) {
-    //            return null;
-    //        }
-    //
-    //        return decodePacket(new UDPPacket(in.readByte()
-    //                , frame.sender()), in, bodyLength);
-    //    }
-    //
-    //    public static Packet decodeFrame(String frame) throws Exception {
-    //        if (frame == null) return null;
-    //        return Jsons.fromJson(frame, JsonPacket.class);
-    //    }
+
+    /**
+     * @param in
+     * @return
+     */
+    private PacketPayload decodeFrame(ByteBuf in) {
+        PacketPayload packet = decodePacketHeader(in);
+        int bodyLength = packet.size;
+        //没有请求体数据时，直接返回（例如verack消息）
+        if (bodyLength == 0) {
+            return packet;
+        }
+        if (bodyLength > Packet.MAX_SIZE) {
+            throw new RuntimeException("packet body length over limit:" + bodyLength);
+        }
+        int readableBytes = in.readableBytes();
+        if (readableBytes < bodyLength) {
+            return null;
+        }
+        packet.body = new byte[bodyLength];
+        in.readBytes(packet.body, 0, bodyLength);
+        return packet;
+    }
+
+    /**
+     * 解码包头数据
+     *
+     * @param in
+     * @return
+     */
+    private PacketPayload decodePacketHeader(ByteBuf in) {
+        PacketPayload packet = new PacketPayload();
+        byte[] header = new byte[PacketHeader.HEADER_LENGTH];
+        in.readBytes(header, 0, header.length);
+        int offset = 0;
+        //读取magic数据
+        packet.magic = readUint32(header, offset);
+        offset += 4;
+        //读取command数据
+        int cursor = offset;
+        // The command is a NULL terminated string, unless the command fills all twelve bytes
+        // in which case the termination is implicit.
+        for (; header[cursor] != 0 && cursor < PacketCommand.COMMAND_LENGTH; cursor++)
+            ;
+        byte[] commandBytes = new byte[cursor - offset];
+        System.arraycopy(header, offset, commandBytes, 0, cursor - offset);
+        //此处需要注意,bitcoin中的command编码为ASCII
+        packet.command = new String(commandBytes, StandardCharsets.US_ASCII);
+        offset += PacketCommand.COMMAND_LENGTH;
+        packet.size = (int) readUint32(header, offset);
+        offset += 4;
+        packet.checksum = new byte[4];
+        // Note that the size read above includes the checksum bytes.
+        System.arraycopy(header, offset, packet.checksum, 0, 4);
+        return packet;
+    }
 }

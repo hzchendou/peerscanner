@@ -3,7 +3,6 @@ package com.hzchendou.model;
 import static com.hzchendou.utils.TypeUtils.readUint32;
 
 import java.nio.BufferUnderflowException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 import io.netty.buffer.ByteBuf;

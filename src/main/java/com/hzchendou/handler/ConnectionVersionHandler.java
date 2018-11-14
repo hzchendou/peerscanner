@@ -1,12 +1,14 @@
 package com.hzchendou.handler;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
 import com.hzchendou.model.AbstractBitcoinMessage;
 import com.hzchendou.model.VersionMessage;
+import com.hzchendou.model.packet.PacketPayload;
 import com.hzchendou.utils.UnsafeByteArrayOutputStream;
 
 import io.netty.buffer.ByteBuf;
@@ -55,20 +57,15 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
      */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-//        super.channelRead(ctx, msg);
-        seekPastMagicBytes((ByteBuf) msg);
-        AbstractBitcoinMessage.BitcoinPacketHeader header = new AbstractBitcoinMessage.BitcoinPacketHeader((ByteBuf) msg);
-        System.out.println("收到数据:" + header.command);
-        //发送verack消息
-        if (Objects.equals("version", header.command)) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            VersionMessage message = new VersionMessage();
-            message.serialize("verack", new byte[0], out);
-            ByteBuf resp = Unpooled.copiedBuffer(out.toByteArray());
-            ctx.write(resp);
-            ctx.flush();
-            System.out.println("完成verack消息发送:");
+        //        super.channelRead(ctx, msg);
+        if (msg instanceof ByteBuf) {
+            dealByteBuff(ctx, (ByteBuf) msg);
+        } else if (msg instanceof PacketPayload) {
+            dealPacket(ctx, (PacketPayload) msg);
+        } else {
+            System.out.println("接收到未知消息");
         }
+
     }
 
 
@@ -82,6 +79,38 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         super.exceptionCaught(ctx, cause);
+        ctx.close();
+    }
+
+    /**
+     * 处理包消息
+     *
+     * @param packet
+     */
+    public void dealPacket(ChannelHandlerContext ctx, PacketPayload packet) throws IOException {
+        System.out.println("收到数据:" + packet.command);
+        //发送verack消息
+        if (Objects.equals("version", packet.command)) {
+            sendVerAckPacket(ctx);
+        }
+    }
+
+    /**
+     * 处理消息
+     *
+     * @param ctx
+     * @param msg
+     * @throws IOException
+     */
+    public void dealByteBuff(ChannelHandlerContext ctx, ByteBuf msg) throws IOException {
+        seekPastMagicBytes(msg);
+        AbstractBitcoinMessage.BitcoinPacketHeader header =
+                new AbstractBitcoinMessage.BitcoinPacketHeader((ByteBuf) msg);
+        System.out.println("收到数据:" + header.command);
+        //发送verack消息
+        if (Objects.equals("version", header.command)) {
+            sendVerAckPacket(ctx);
+        }
     }
 
     /**
@@ -109,5 +138,15 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
                 magicCursor = 3;
             }
         }
+    }
+
+    public void sendVerAckPacket(ChannelHandlerContext ctx) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        VersionMessage message = new VersionMessage();
+        message.serialize("verack", new byte[0], out);
+        ByteBuf resp = Unpooled.copiedBuffer(out.toByteArray());
+        ctx.write(resp);
+        ctx.flush();
+        System.out.println("完成verack消息发送:");
     }
 }

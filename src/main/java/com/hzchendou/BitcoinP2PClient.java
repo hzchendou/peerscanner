@@ -4,6 +4,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import com.hzchendou.handler.ConnectionVersionHandler;
+import com.hzchendou.handler.codec.PacketDecoder;
 import com.hzchendou.model.seed.DNSDiscovery;
 
 import io.netty.bootstrap.Bootstrap;
@@ -32,6 +33,7 @@ public class BitcoinP2PClient {
                     ChannelOption.TCP_NODELAY, true).handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 protected void initChannel(SocketChannel ch) throws Exception {
+                    ch.pipeline().addLast("decoder", new PacketDecoder());
                     ch.pipeline().addLast(new ConnectionVersionHandler());
                 }
             });
