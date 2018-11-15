@@ -1,14 +1,17 @@
 package com.hzchendou.model.packet.message;
 
+import static com.hzchendou.enums.ProtocolVersion.BLOOM_FILTER;
+
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import com.google.common.net.InetAddresses;
 import com.hzchendou.enums.CommandTypeEnums;
 import com.hzchendou.enums.ProtocolVersion;
 import com.hzchendou.model.VarInt;
-import com.hzchendou.model.packet.PacketPayload;
+import com.hzchendou.model.packet.MessagePacket;
 import com.hzchendou.utils.TypeUtils;
 
 import io.netty.buffer.ByteBuf;
@@ -20,7 +23,7 @@ import io.netty.buffer.ByteBuf;
  * @date 18-11-14
  * @since 1.0
  */
-public class VersionMessagePacket extends PacketPayload {
+public class VersionMessagePacket extends MessagePacket {
 
     /**
      * The version of this library release, as a string.
@@ -121,9 +124,9 @@ public class VersionMessagePacket extends PacketPayload {
         TypeUtils.uint32ToByteStreamLE(localServices >> 32, buf);
         TypeUtils.uint32ToByteStreamLE(time, buf);
         TypeUtils.uint32ToByteStreamLE(time >> 32, buf);
-        receivingAddr.serialzeToByte(buf);
+        receivingAddr.serializePacket(buf);
         if (clientVersion > 160) {
-            fromAddr.serialzeToByte(buf);
+            fromAddr.serializePacket(buf);
             // Next up is the "local host nonce", this is to detect the case of connecting
             // back to yourself. We don't care about this as we won't be accepting inbound
             // connections.
@@ -135,7 +138,7 @@ public class VersionMessagePacket extends PacketPayload {
             buf.writeBytes(subVerBytes);
             // Size of known block chain.
             TypeUtils.uint32ToByteStreamLE(bestHeight, buf);
-            if (clientVersion > ProtocolVersion.BLOOM_FILTER.getBitcoinProtocolVersion()) {
+            if (clientVersion > BLOOM_FILTER.getBitcoinProtocolVersion()) {
                 buf.writeInt(relayTxesBeforeFilter ? 1 : 0);
             }
         }
@@ -147,9 +150,43 @@ public class VersionMessagePacket extends PacketPayload {
      */
     @Override
     public void deserialize() {
-
-
-        super.deserialize();
+        clientVersion = (int) readUint32();
+        localServices = readUint64().longValue();
+        time = readUint64().longValue();
+        receivingAddr = PeerAddress.defaultPeerAddr(0);
+        byte[] addr = new byte[PeerAddress.MESSAGE_SIZE - 4];
+        System.arraycopy(body, cursor, addr, 0,
+                addr.length);
+        receivingAddr.deserialize(addr);
+        cursor += addr.length;
+        if (clientVersion >= 106) {
+            fromAddr = PeerAddress.defaultPeerAddr(0);
+            addr = new byte[PeerAddress.MESSAGE_SIZE - 4];
+            System.arraycopy(body, cursor, addr, 0,
+                    addr.length);
+            fromAddr.deserialize(addr);
+            cursor += (PeerAddress.MESSAGE_SIZE - 4);
+            // uint64 localHostNonce (random data)
+            // We don't care about the localhost nonce. It's used to detect connecting back to yourself in cases where
+            // there are NATs and proxies in the way. However we don't listen for inbound connections so it's
+            // irrelevant.
+            readUint64();
+            // string subVer (currently "")
+            subVer = readStr();
+            // int bestHeight (size of known block chain).
+            bestHeight = readUint32();
+            if (clientVersion >= BLOOM_FILTER.getBitcoinProtocolVersion()) {
+                relayTxesBeforeFilter = readBytes(1)[0] != 0;
+            } else {
+                relayTxesBeforeFilter = true;
+            }
+        } else {
+            // Default values for flags which may not be sent by old nodes
+            fromAddr = null;
+            subVer = "";
+            bestHeight = 0;
+            relayTxesBeforeFilter = true;
+        }
     }
 
     /**
@@ -173,6 +210,4 @@ public class VersionMessagePacket extends PacketPayload {
     public boolean isWitnessSupported() {
         return (localServices & NODE_WITNESS) == NODE_WITNESS;
     }
-
-
 }

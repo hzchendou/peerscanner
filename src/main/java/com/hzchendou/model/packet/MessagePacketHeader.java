@@ -1,11 +1,9 @@
 package com.hzchendou.model.packet;
 
-import static com.hzchendou.model.packet.PacketCommand.COMMAND_LENGTH;
-
 import java.util.Arrays;
 
-import com.hzchendou.utils.TypeUtils;
 import com.hzchendou.utils.Sha256HashUtils;
+import com.hzchendou.utils.TypeUtils;
 
 import io.netty.buffer.ByteBuf;
 
@@ -18,12 +16,15 @@ import io.netty.buffer.ByteBuf;
  * 检验码-sha256(sha256(payload))
  *
  * @author hzchendou
- * @date 18-11-14
+ * @date 18-11-15
  * @since 1.0
  */
-public class PacketHeader implements Packet {
+public abstract class MessagePacketHeader implements Packet {
+
 
     public static final long PACKET_MAGIC = 0xf9beb4d9L;
+
+    public static final int COMMAND_LENGTH = 12;
 
 
     public static final int HEADER_LENGTH = 4 + COMMAND_LENGTH + 4 + 4;
@@ -31,7 +32,7 @@ public class PacketHeader implements Packet {
     /**
      * 4字节魔数
      */
-    public long magic = 0xf9beb4d9L;
+    public long magic = PACKET_MAGIC;
 
     /**
      * 命令符（最大为12字节，转为byte数组时,不足部分用\0补充）
@@ -48,43 +49,12 @@ public class PacketHeader implements Packet {
      */
     public byte[] checksum;
 
-    public long getMagic() {
-        return magic;
-    }
-
-    public void setMagic(long magic) {
-        this.magic = magic;
-    }
-
-    public String getCommand() {
-        return command;
-    }
-
-    public void setCommand(String command) {
-        this.command = command;
-    }
-
-    public int getSize() {
-        return size;
-    }
-
-    public void setSize(int size) {
-        this.size = size;
-    }
-
-    public byte[] getChecksum() {
-        return checksum;
-    }
-
-    public void setChecksum(byte[] checksum) {
-        this.checksum = checksum;
-    }
-
     /**
      * 序列化
      *
      * @param buf
      */
+    @Override
     public void serializePacket(ByteBuf buf) {
         byte[] message = getBody();
         byte[] header = new byte[HEADER_LENGTH];
@@ -103,15 +73,6 @@ public class PacketHeader implements Packet {
         buf.writeBytes(message);
     }
 
-    /**
-     * 获取请求体数据
-     *
-     * @return
-     */
-    public byte[] getBody() {
-        return new byte[0];
-    }
-
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("PacketHeader{");
@@ -122,4 +83,5 @@ public class PacketHeader implements Packet {
         sb.append('}');
         return sb.toString();
     }
+
 }

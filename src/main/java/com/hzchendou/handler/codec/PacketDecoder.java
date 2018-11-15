@@ -1,4 +1,3 @@
-
 package com.hzchendou.handler.codec;
 
 
@@ -6,11 +5,14 @@ import static com.hzchendou.utils.TypeUtils.readUint32;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Objects;
 
+import com.hzchendou.enums.CommandTypeEnums;
+import com.hzchendou.model.packet.MessagePacket;
+import com.hzchendou.model.packet.MessagePacketHeader;
 import com.hzchendou.model.packet.Packet;
-import com.hzchendou.model.packet.PacketCommand;
-import com.hzchendou.model.packet.PacketHeader;
 import com.hzchendou.model.packet.PacketPayload;
+import com.hzchendou.model.packet.message.VersionMessagePacket;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -47,7 +49,7 @@ public final class PacketDecoder extends ByteToMessageDecoder {
      * @param out
      */
     private void decodeFrames(ByteBuf in, List<Object> out) {
-        if (in.readableBytes() >= PacketHeader.HEADER_LENGTH) {
+        if (in.readableBytes() >= MessagePacket.HEADER_LENGTH) {
             //1.记录当前读取位置位置.如果读取到非完整的frame,要恢复到该位置,便于下次读取
             in.markReaderIndex();
             PacketPayload packet = decodeFrame(in);
@@ -65,7 +67,7 @@ public final class PacketDecoder extends ByteToMessageDecoder {
      * @return
      */
     private PacketPayload decodeFrame(ByteBuf in) {
-        PacketPayload packet = decodePacketHeader(in);
+        MessagePacket packet = decodePacketHeader(in);
         int bodyLength = packet.size;
         //没有请求体数据时，直接返回（例如verack消息）
         if (bodyLength == 0) {
@@ -80,7 +82,7 @@ public final class PacketDecoder extends ByteToMessageDecoder {
         }
         packet.body = new byte[bodyLength];
         in.readBytes(packet.body, 0, bodyLength);
-        return packet;
+        return deserialMessagePacket(packet);
     }
 
     /**
@@ -89,9 +91,9 @@ public final class PacketDecoder extends ByteToMessageDecoder {
      * @param in
      * @return
      */
-    private PacketPayload decodePacketHeader(ByteBuf in) {
-        PacketPayload packet = new PacketPayload();
-        byte[] header = new byte[PacketHeader.HEADER_LENGTH];
+    private MessagePacket decodePacketHeader(ByteBuf in) {
+        MessagePacket packet = new MessagePacket();
+        byte[] header = new byte[MessagePacket.HEADER_LENGTH];
         in.readBytes(header, 0, header.length);
         int offset = 0;
         //读取magic数据
@@ -101,18 +103,34 @@ public final class PacketDecoder extends ByteToMessageDecoder {
         int cursor = offset;
         // The command is a NULL terminated string, unless the command fills all twelve bytes
         // in which case the termination is implicit.
-        for (; header[cursor] != 0 && cursor < PacketCommand.COMMAND_LENGTH; cursor++)
+        for (; header[cursor] != 0 && cursor < MessagePacketHeader.COMMAND_LENGTH; cursor++)
             ;
         byte[] commandBytes = new byte[cursor - offset];
         System.arraycopy(header, offset, commandBytes, 0, cursor - offset);
         //此处需要注意,bitcoin中的command编码为ASCII
         packet.command = new String(commandBytes, StandardCharsets.US_ASCII);
-        offset += PacketCommand.COMMAND_LENGTH;
+        offset += MessagePacketHeader.COMMAND_LENGTH;
         packet.size = (int) readUint32(header, offset);
         offset += 4;
         packet.checksum = new byte[4];
         // Note that the size read above includes the checksum bytes.
         System.arraycopy(header, offset, packet.checksum, 0, 4);
+        return packet;
+    }
+
+    /**
+     * 反序列化消息包
+     *
+     * @param packet
+     * @return
+     */
+    private MessagePacket deserialMessagePacket(MessagePacket packet) {
+        if(Objects.equals(packet.command, CommandTypeEnums.VERSION.getName())) {
+            VersionMessagePacket vPacket = new VersionMessagePacket();
+            vPacket.copyFrom(packet);
+            vPacket.deserialize(packet.body);
+            return vPacket;
+        }
         return packet;
     }
 }

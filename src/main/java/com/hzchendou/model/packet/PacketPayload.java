@@ -1,9 +1,10 @@
 package com.hzchendou.model.packet;
 
-import com.hzchendou.utils.TypeUtils;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
+import com.hzchendou.model.VarInt;
+import com.hzchendou.utils.TypeUtils;
 
 /**
  * 包请求体.
@@ -12,68 +13,94 @@ import io.netty.buffer.Unpooled;
  * @date 18-11-14
  * @since 1.0
  */
-public class PacketPayload extends PacketHeader {
-
+public interface PacketPayload extends Packet {
     /**
-     * 请求体数据
-     */
-    public byte[] body;
-
-    // The cursor keeps track of where we are in the byte array as we parse it.
-    // Note that it's relative to the start of the message payload NOT the start of the array.
-    protected int cursor;
-
-    /**
-     * 获取请求体
+     * 读取4个字节转化为无符号int类型
      *
      * @return
      */
-    @Override
-    public byte[] getBody() {
-        if (body == null) {
-            ByteBuf byteBuf = Unpooled.buffer();
-            serializeToByteBuf(byteBuf);
-            if (byteBuf.readableBytes() > 0) {
-                body = new byte[byteBuf.readableBytes()];
-                byteBuf.readBytes(body, 0, body.length);
-                byteBuf.clear();
-            } else {
-                body = new byte[0];
-            }
-            return body;
-        }
-        return body;
-    }
-
-
-    public void setBody(byte[] body) {
-        this.body = body;
-    }
-
-    /**
-     * 序列化
-     *
-     * @param buf
-     */
-    public void serializeToByteBuf(ByteBuf buf) {
-
-    }
-
-    /**
-     * 反序列化
-     */
-    public void deserialize() {
-
-    }
-
-
-    protected long readUint32() {
+    default long readUint32(byte[] body, int cursor) {
         try {
             long u = TypeUtils.readUint32(body, cursor);
-            cursor += 4;
             return u;
         } catch (ArrayIndexOutOfBoundsException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * 读取8个字节，转化为长整形long
+     *
+     * @return
+     */
+    default long readInt64(byte[] body, int cursor) {
+        try {
+            long u = TypeUtils.readInt64(body, cursor);
+            return u;
+        } catch (ArrayIndexOutOfBoundsException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 读取8个字节，转化为无符号整形
+     *
+     * @return
+     */
+    default BigInteger readUint64(byte[] body, int cursor) {
+        // Java does not have an unsigned 64 bit type. So scrape it off the wire then flip.
+        return new BigInteger(TypeUtils.reverseBytes(readBytes(body,cursor,8)));
+    }
+
+    /**
+     * @return
+     */
+    default long readVarInt(byte[] body, int cursor) {
+        return readVarInt(body, cursor, 0);
+    }
+
+    default long readVarInt(byte[] body, int cursor, int offset) {
+        try {
+            VarInt varint = new VarInt(body, cursor + offset);
+            return varint.value;
+        } catch (ArrayIndexOutOfBoundsException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 读取指定长度字节数
+     *
+     * @param length
+     * @return
+     */
+    default byte[] readBytes(byte[] body, int cursor, int length) {
+        if ((length > MAX_SIZE) || (cursor + length > body.length)) {
+            throw new RuntimeException("Claimed value length too large: " + length);
+        }
+        try {
+            byte[] b = new byte[length];
+            System.arraycopy(body, cursor, b, 0, length);
+            return b;
+        } catch (IndexOutOfBoundsException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    default byte[] readByteArray(byte[] body, int cursor) {
+        long len = readVarInt(body, cursor);
+        return readBytes(body, cursor, (int) len);
+    }
+
+    default String readStr(byte[] body, int cursor) {
+        long length = readVarInt(body, cursor);
+        return length == 0 ?
+                "" :
+                new String(readBytes(body, cursor, (int) length),
+                        StandardCharsets.UTF_8);// optimization for empty strings
+    }
+
+    default boolean hasMoreBytes(byte[] body, int cursor) {
+        return cursor < body.length;
     }
 }

@@ -1,10 +1,9 @@
 package com.hzchendou.handler;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Objects;
 
-import com.hzchendou.model.packet.PacketPayload;
+import com.hzchendou.model.packet.MessagePacket;
 import com.hzchendou.model.packet.message.VersionAckMessagePacket;
 import com.hzchendou.model.packet.message.VersionMessagePacket;
 
@@ -49,8 +48,8 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
      */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        if (msg instanceof PacketPayload) {
-            dealPacket(ctx, (PacketPayload) msg);
+        if (msg instanceof MessagePacket) {
+            dealPacket(ctx, (MessagePacket) msg);
         } else {
             System.out.println("接收到未知消息");
         }
@@ -75,7 +74,7 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
      *
      * @param packet
      */
-    public void dealPacket(ChannelHandlerContext ctx, PacketPayload packet) {
+    public void dealPacket(ChannelHandlerContext ctx, MessagePacket packet) {
         System.out.println("收到数据:" + packet.command);
         //发送verack消息
         if (Objects.equals("version", packet.command)) {
@@ -85,7 +84,7 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
             packet.serializePacket(buf);
             ctx.write(buf);
             ctx.flush();
-            System.out.format("发送数据: %s", packet.command).println();
+            System.out.format("完成%s消息发送", packet.command).println();
         }
     }
 
@@ -96,12 +95,11 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
      * @throws IOException
      */
     public void sendVerAckPacket(ChannelHandlerContext ctx) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
         VersionAckMessagePacket message = new VersionAckMessagePacket();
         ByteBuf resp = Unpooled.buffer();
         message.serializePacket(resp);
         ctx.write(resp);
         ctx.flush();
-        System.out.println("完成verack消息发送:");
+        System.out.format("完成%s消息发送", message.command).println();
     }
 }

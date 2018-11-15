@@ -1,7 +1,7 @@
 package com.hzchendou.model.packet.message;
 
 import com.hzchendou.enums.CommandTypeEnums;
-import com.hzchendou.model.packet.PacketPayload;
+import com.hzchendou.model.packet.MessagePacket;
 
 /**
  * 版本消息应答.
@@ -10,10 +10,9 @@ import com.hzchendou.model.packet.PacketPayload;
  * @date 18-11-14
  * @since 1.0
  */
-public class VersionAckMessagePacket extends PacketPayload {
+public class VersionAckMessagePacket extends MessagePacket {
 
     public VersionAckMessagePacket() {
         command = CommandTypeEnums.VERACK.getName();
-        setBody(new byte[0]);
     }
 }

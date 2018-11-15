@@ -51,6 +51,18 @@ public class TypeUtils {
     }
 
     /**
+     * Parse 2 bytes from the byte array (starting at the offset) as unsigned 16-bit integer in big endian format.
+     *
+     * @param bytes
+     * @param offset
+     * @return
+     */
+    public static int readUint16BE(byte[] bytes, int offset) {
+        return ((bytes[offset] & 0xff) << 8) | (bytes[offset + 1] & 0xff);
+    }
+
+
+    /**
      * Write 4 bytes to the byte array (starting at the offset) as unsigned 32-bit integer in little endian format.
      *
      * @param val
