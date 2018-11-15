@@ -12,6 +12,9 @@ import com.hzchendou.model.packet.MessagePacket;
 import com.hzchendou.model.packet.MessagePacketHeader;
 import com.hzchendou.model.packet.Packet;
 import com.hzchendou.model.packet.PacketPayload;
+import com.hzchendou.model.packet.message.InventoryMessage;
+import com.hzchendou.model.packet.message.SendHeadersMessagePacket;
+import com.hzchendou.model.packet.message.VersionAckMessagePacket;
 import com.hzchendou.model.packet.message.VersionMessagePacket;
 
 import io.netty.buffer.ByteBuf;
@@ -82,7 +85,7 @@ public final class PacketDecoder extends ByteToMessageDecoder {
         }
         packet.body = new byte[bodyLength];
         in.readBytes(packet.body, 0, bodyLength);
-        return deserialMessagePacket(packet);
+        return deserialzeMessagePacket(packet);
     }
 
     /**
@@ -103,8 +106,7 @@ public final class PacketDecoder extends ByteToMessageDecoder {
         int cursor = offset;
         // The command is a NULL terminated string, unless the command fills all twelve bytes
         // in which case the termination is implicit.
-        for (; header[cursor] != 0 && cursor < MessagePacketHeader.COMMAND_LENGTH; cursor++)
-            ;
+        for (; header[cursor] != 0 && (cursor - offset) < MessagePacketHeader.COMMAND_LENGTH; cursor++);
         byte[] commandBytes = new byte[cursor - offset];
         System.arraycopy(header, offset, commandBytes, 0, cursor - offset);
         //此处需要注意,bitcoin中的command编码为ASCII
@@ -124,13 +126,21 @@ public final class PacketDecoder extends ByteToMessageDecoder {
      * @param packet
      * @return
      */
-    private MessagePacket deserialMessagePacket(MessagePacket packet) {
-        if(Objects.equals(packet.command, CommandTypeEnums.VERSION.getName())) {
-            VersionMessagePacket vPacket = new VersionMessagePacket();
-            vPacket.copyFrom(packet);
-            vPacket.deserialize(packet.body);
-            return vPacket;
+    private MessagePacket deserialzeMessagePacket(MessagePacket packet) {
+        MessagePacket destPacket;
+        if (Objects.equals(packet.command, CommandTypeEnums.VERSION.getName())) {
+            destPacket = new VersionMessagePacket();
+        } else if (Objects.equals(packet.command, CommandTypeEnums.VERACK.getName())) {
+            destPacket = new VersionAckMessagePacket();
+        } else if (Objects.equals(packet.command, CommandTypeEnums.SENDHEADERS.getName())) {
+            destPacket = new SendHeadersMessagePacket();
+        } else if (Objects.equals(packet.command, CommandTypeEnums.INV.getName())) {
+            destPacket = new InventoryMessage();
+        } else {
+            return packet;
         }
-        return packet;
+        destPacket.copyFrom(packet);
+        destPacket.deserialize(packet.body);
+        return destPacket;
     }
 }

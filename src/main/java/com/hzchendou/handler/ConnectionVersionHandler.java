@@ -3,6 +3,7 @@ package com.hzchendou.handler;
 import java.io.IOException;
 import java.util.Objects;
 
+import com.hzchendou.enums.CommandTypeEnums;
 import com.hzchendou.model.packet.MessagePacket;
 import com.hzchendou.model.packet.message.VersionAckMessagePacket;
 import com.hzchendou.model.packet.message.VersionMessagePacket;
@@ -75,16 +76,17 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
      * @param packet
      */
     public void dealPacket(ChannelHandlerContext ctx, MessagePacket packet) {
-        System.out.println("收到数据:" + packet.command);
         //发送verack消息
-        if (Objects.equals("version", packet.command)) {
+        if (Objects.equals(CommandTypeEnums.VERSION.getName(), packet.command)) {
+            VersionMessagePacket versionMessage = (VersionMessagePacket) packet;
+            System.out.format("收到数据:%s, 客户端版本号:%s", versionMessage.command, versionMessage.subVer).println();
             sendVerAckPacket(ctx);
-        } else {
-            ByteBuf buf = Unpooled.buffer();
-            packet.serializePacket(buf);
-            ctx.write(buf);
-            ctx.flush();
-            System.out.format("完成%s消息发送", packet.command).println();
+        } else if (Objects.equals(CommandTypeEnums.VERACK.getName(), packet.command)) {
+            System.out.println("收到version应答消息");
+        } else if (Objects.equals(CommandTypeEnums.SENDHEADERS.getName(), packet.command)) {
+            System.out.println("收到sendHeaders消息");
+        } {
+            System.out.format("收到不支持数据:%s", packet.command).println();
         }
     }
 

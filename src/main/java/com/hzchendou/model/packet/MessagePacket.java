@@ -177,6 +177,17 @@ public class MessagePacket extends MessagePacketHeader implements PacketPayload 
                 new String(readBytes((int) length), StandardCharsets.UTF_8); // optimization for empty strings
     }
 
+    /**
+     * 读取Hash值
+     *
+     * @return
+     */
+    protected byte[] readHash() {
+        // We have to flip it around, as it's been read off the wire in little endian.
+        // Not the most efficient way to do this but the clearest.
+        return TypeUtils.reverseBytes(readBytes(32));
+    }
+
     protected boolean hasMoreBytes() {
         return cursor < body.length;
     }
