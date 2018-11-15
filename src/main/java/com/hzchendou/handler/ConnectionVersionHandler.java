@@ -5,6 +5,8 @@ import java.util.Objects;
 
 import com.hzchendou.enums.CommandTypeEnums;
 import com.hzchendou.model.packet.MessagePacket;
+import com.hzchendou.model.packet.message.PingMessagePacket;
+import com.hzchendou.model.packet.message.SendHeadersMessagePacket;
 import com.hzchendou.model.packet.message.VersionAckMessagePacket;
 import com.hzchendou.model.packet.message.VersionMessagePacket;
 
@@ -77,15 +79,17 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
      */
     public void dealPacket(ChannelHandlerContext ctx, MessagePacket packet) {
         //发送verack消息
-        if (Objects.equals(CommandTypeEnums.VERSION.getName(), packet.command)) {
+        if (packet instanceof VersionMessagePacket) {
             VersionMessagePacket versionMessage = (VersionMessagePacket) packet;
             System.out.format("收到数据:%s, 客户端版本号:%s", versionMessage.command, versionMessage.subVer).println();
             sendVerAckPacket(ctx);
-        } else if (Objects.equals(CommandTypeEnums.VERACK.getName(), packet.command)) {
+        } else if (packet instanceof VersionAckMessagePacket) {
             System.out.println("收到version应答消息");
-        } else if (Objects.equals(CommandTypeEnums.SENDHEADERS.getName(), packet.command)) {
+        } else if (packet instanceof SendHeadersMessagePacket) {
             System.out.println("收到sendHeaders消息");
-        } {
+        } else if (packet instanceof PingMessagePacket) {
+            System.out.println("收到ping消息");
+        } else {
             System.out.format("收到不支持数据:%s", packet.command).println();
         }
     }

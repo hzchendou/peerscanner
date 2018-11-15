@@ -13,6 +13,7 @@ import com.hzchendou.model.packet.MessagePacketHeader;
 import com.hzchendou.model.packet.Packet;
 import com.hzchendou.model.packet.PacketPayload;
 import com.hzchendou.model.packet.message.InventoryMessage;
+import com.hzchendou.model.packet.message.PingMessagePacket;
 import com.hzchendou.model.packet.message.SendHeadersMessagePacket;
 import com.hzchendou.model.packet.message.VersionAckMessagePacket;
 import com.hzchendou.model.packet.message.VersionMessagePacket;
@@ -74,7 +75,8 @@ public final class PacketDecoder extends ByteToMessageDecoder {
         int bodyLength = packet.size;
         //没有请求体数据时，直接返回（例如verack消息）
         if (bodyLength == 0) {
-            return packet;
+            packet.body = new byte[bodyLength];
+            return deserialzeMessagePacket(packet);
         }
         if (bodyLength > Packet.MAX_SIZE) {
             throw new RuntimeException("packet body length over limit:" + bodyLength);
@@ -106,7 +108,8 @@ public final class PacketDecoder extends ByteToMessageDecoder {
         int cursor = offset;
         // The command is a NULL terminated string, unless the command fills all twelve bytes
         // in which case the termination is implicit.
-        for (; header[cursor] != 0 && (cursor - offset) < MessagePacketHeader.COMMAND_LENGTH; cursor++);
+        for (; header[cursor] != 0 && (cursor - offset) < MessagePacketHeader.COMMAND_LENGTH; cursor++)
+            ;
         byte[] commandBytes = new byte[cursor - offset];
         System.arraycopy(header, offset, commandBytes, 0, cursor - offset);
         //此处需要注意,bitcoin中的command编码为ASCII
@@ -136,6 +139,8 @@ public final class PacketDecoder extends ByteToMessageDecoder {
             destPacket = new SendHeadersMessagePacket();
         } else if (Objects.equals(packet.command, CommandTypeEnums.INV.getName())) {
             destPacket = new InventoryMessage();
+        } else if (Objects.equals(packet.command, CommandTypeEnums.PING.getName())) {
+            destPacket = new PingMessagePacket();
         } else {
             return packet;
         }
