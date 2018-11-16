@@ -4,7 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.hzchendou.enums.CommandTypeEnums;
+import com.hzchendou.model.VarInt;
 import com.hzchendou.model.packet.MessagePacket;
+import com.hzchendou.utils.TypeUtils;
+
+import io.netty.buffer.ByteBuf;
 
 /**
  * inv消息.
@@ -28,6 +32,7 @@ public class InventoryMessage extends MessagePacket {
     /**
      * 反序列化
      */
+    @Override
     protected void deserialize() {
         arrayLen = readVarInt();
         if (arrayLen > MAX_INVENTORY_ITEMS) {
@@ -63,8 +68,19 @@ public class InventoryMessage extends MessagePacket {
             items.add(item);
         }
         body = null;
-
     }
 
-
+    /**
+     * 序列化
+     *
+     * @param buf
+     */
+    @Override
+    public void serializePacket(ByteBuf buf) {
+        buf.writeBytes(new VarInt(items.size()).encode());
+        for (InventoryItem item : items) {
+            TypeUtils.uint32ToByteBufLE(item.type.ordinal(), buf);
+            buf.writeBytes(TypeUtils.reverseBytes(item.hash));
+        }
+    }
 }

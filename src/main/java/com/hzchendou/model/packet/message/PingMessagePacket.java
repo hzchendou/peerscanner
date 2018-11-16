@@ -1,6 +1,9 @@
 package com.hzchendou.model.packet.message;
 
 import com.hzchendou.model.packet.MessagePacket;
+import com.hzchendou.utils.TypeUtils;
+
+import io.netty.buffer.ByteBuf;
 
 /**
  * Ping消息.
@@ -36,6 +39,7 @@ public class PingMessagePacket extends MessagePacket {
     /**
      * 反序列化
      */
+    @Override
     protected void deserialize() {
         try {
             nonce = readInt64();
@@ -45,6 +49,10 @@ public class PingMessagePacket extends MessagePacket {
         }
     }
 
-
-
+    @Override
+    public void serializePacket(ByteBuf buf) {
+        if (hasNonce) {
+            TypeUtils.int64ToByteBufLE(nonce, buf);
+        }
+    }
 }

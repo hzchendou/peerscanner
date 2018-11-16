@@ -98,12 +98,32 @@ public class TypeUtils {
      * @param stream
      * @throws IOException
      */
-    public static void uint32ToByteStreamLE(long val, ByteBuf stream) {
+    public static void uint32ToByteBufLE(long val, ByteBuf stream) {
         stream.writeInt((int) (0xFF & val));
         stream.writeInt((int) (0xFF & (val >> 8)));
         stream.writeInt((int) (0xFF & (val >> 16)));
         stream.writeInt((int) (0xFF & (val >> 24)));
     }
+
+
+    /**
+     * Write 8 bytes to the output stream as signed 64-bit integer in little endian format.
+     *
+     * @param val
+     * @param stream
+     * @throws IOException
+     */
+    public static void int64ToByteBufLE(long val, ByteBuf stream) {
+        stream.writeInt((int) (0xFF & val));
+        stream.writeInt((int) (0xFF & (val >> 8)));
+        stream.writeInt((int) (0xFF & (val >> 16)));
+        stream.writeInt((int) (0xFF & (val >> 24)));
+        stream.writeInt((int) (0xFF & (val >> 32)));
+        stream.writeInt((int) (0xFF & (val >> 40)));
+        stream.writeInt((int) (0xFF & (val >> 48)));
+        stream.writeInt((int) (0xFF & (val >> 56)));
+    }
+
 
     /**
      * 将64位无符号整数转为二进制，同时用0进行补全

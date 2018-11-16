@@ -5,7 +5,6 @@ import static com.hzchendou.enums.ProtocolVersion.BLOOM_FILTER;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
 import com.google.common.net.InetAddresses;
 import com.hzchendou.enums.CommandTypeEnums;
@@ -119,25 +118,25 @@ public class VersionMessagePacket extends MessagePacket {
      */
     @Override
     public void serializeToByteBuf(ByteBuf buf) {
-        TypeUtils.uint32ToByteStreamLE(clientVersion, buf);
-        TypeUtils.uint32ToByteStreamLE(localServices, buf);
-        TypeUtils.uint32ToByteStreamLE(localServices >> 32, buf);
-        TypeUtils.uint32ToByteStreamLE(time, buf);
-        TypeUtils.uint32ToByteStreamLE(time >> 32, buf);
+        TypeUtils.uint32ToByteBufLE(clientVersion, buf);
+        TypeUtils.uint32ToByteBufLE(localServices, buf);
+        TypeUtils.uint32ToByteBufLE(localServices >> 32, buf);
+        TypeUtils.uint32ToByteBufLE(time, buf);
+        TypeUtils.uint32ToByteBufLE(time >> 32, buf);
         receivingAddr.serializePacket(buf);
         if (clientVersion > 160) {
             fromAddr.serializePacket(buf);
             // Next up is the "local host nonce", this is to detect the case of connecting
             // back to yourself. We don't care about this as we won't be accepting inbound
             // connections.
-            TypeUtils.uint32ToByteStreamLE(0, buf);
-            TypeUtils.uint32ToByteStreamLE(0, buf);
+            TypeUtils.uint32ToByteBufLE(0, buf);
+            TypeUtils.uint32ToByteBufLE(0, buf);
             // Now comes subVer.
             byte[] subVerBytes = subVer.getBytes(StandardCharsets.UTF_8);
             buf.writeBytes(new VarInt(subVerBytes.length).encode());
             buf.writeBytes(subVerBytes);
             // Size of known block chain.
-            TypeUtils.uint32ToByteStreamLE(bestHeight, buf);
+            TypeUtils.uint32ToByteBufLE(bestHeight, buf);
             if (clientVersion > BLOOM_FILTER.getBitcoinProtocolVersion()) {
                 buf.writeInt(relayTxesBeforeFilter ? 1 : 0);
             }
