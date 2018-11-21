@@ -1,5 +1,6 @@
 package com.hzchendou.model.packet.message;
 
+import com.hzchendou.enums.CommandTypeEnums;
 import com.hzchendou.model.packet.MessagePacket;
 import com.hzchendou.utils.TypeUtils;
 
@@ -23,6 +24,7 @@ public class PingMessagePacket extends MessagePacket {
      * Only use this if the remote node has a protocol version greater than 60000
      */
     public PingMessagePacket(long nonce) {
+        this.command = CommandTypeEnums.PING.getName();
         this.nonce = nonce;
         this.hasNonce = true;
     }
@@ -32,6 +34,7 @@ public class PingMessagePacket extends MessagePacket {
      * Only use this if the remote node has a protocol version lower than or equal 60000
      */
     public PingMessagePacket() {
+        this.command = CommandTypeEnums.PING.getName();
         this.hasNonce = false;
     }
 
@@ -54,5 +57,21 @@ public class PingMessagePacket extends MessagePacket {
         if (hasNonce) {
             TypeUtils.int64ToByteBufLE(nonce, buf);
         }
+    }
+
+    public boolean isHasNonce() {
+        return hasNonce;
+    }
+
+    public void setHasNonce(boolean hasNonce) {
+        this.hasNonce = hasNonce;
+    }
+
+    public long getNonce() {
+        return nonce;
+    }
+
+    public void setNonce(long nonce) {
+        this.nonce = nonce;
     }
 }

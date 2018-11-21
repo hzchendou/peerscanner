@@ -21,6 +21,11 @@ public class PongMessagePacket extends MessagePacket {
         this.command = CommandTypeEnums.PONG.getName();
     }
 
+    public PongMessagePacket(long nonce) {
+        this.command = CommandTypeEnums.PONG.getName();
+        this.nonce = nonce;
+    }
+
     /**
      * 反序列化
      */
@@ -38,5 +43,13 @@ public class PongMessagePacket extends MessagePacket {
     @Override
     public void serializePacket(ByteBuf buf) {
         TypeUtils.int64ToByteBufLE(nonce, buf);
+    }
+
+    public long getNonce() {
+        return nonce;
+    }
+
+    public void setNonce(long nonce) {
+        this.nonce = nonce;
     }
 }

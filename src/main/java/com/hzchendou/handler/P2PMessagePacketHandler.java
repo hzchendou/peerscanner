@@ -1,11 +1,13 @@
 package com.hzchendou.handler;
 
-import java.io.IOException;
-import java.util.Objects;
+import java.util.List;
 
-import com.hzchendou.enums.CommandTypeEnums;
 import com.hzchendou.model.packet.MessagePacket;
+import com.hzchendou.model.packet.message.AddressMessagePacket;
+import com.hzchendou.model.packet.message.GetAddrMessage;
+import com.hzchendou.model.packet.message.PeerAddress;
 import com.hzchendou.model.packet.message.PingMessagePacket;
+import com.hzchendou.model.packet.message.PongMessagePacket;
 import com.hzchendou.model.packet.message.SendHeadersMessagePacket;
 import com.hzchendou.model.packet.message.VersionAckMessagePacket;
 import com.hzchendou.model.packet.message.VersionMessagePacket;
@@ -16,13 +18,13 @@ import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
 
 /**
- * 连接Version消息处理.
+ * p2p协议消息处理器.
  *
  * @author hzchendou
  * @date 18-11-13
  * @since 1.0
  */
-public class ConnectionVersionHandler extends ChannelHandlerAdapter {
+public class P2PMessagePacketHandler extends ChannelHandlerAdapter {
 
     /**
      * 连接建立完成，发送version message
@@ -34,12 +36,7 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
         System.out.println("连接建立");
-        ByteBuf resp = Unpooled.buffer();
-        VersionMessagePacket packet = new VersionMessagePacket();
-        packet.serializePacket(resp);
-        ctx.write(resp);
-        ctx.flush();
-        System.out.println("数据发送完成");
+        sendMessagePacket(ctx, new VersionMessagePacket());
     }
 
     /**
@@ -82,30 +79,47 @@ public class ConnectionVersionHandler extends ChannelHandlerAdapter {
         if (packet instanceof VersionMessagePacket) {
             VersionMessagePacket versionMessage = (VersionMessagePacket) packet;
             System.out.format("收到数据:%s, 客户端版本号:%s", versionMessage.command, versionMessage.subVer).println();
-            sendVerAckPacket(ctx);
+            sendMessagePacket(ctx, new VersionAckMessagePacket());
         } else if (packet instanceof VersionAckMessagePacket) {
             System.out.println("收到version应答消息");
+            //发送获取地址消息
+            sendMessagePacket(ctx, new GetAddrMessage());
         } else if (packet instanceof SendHeadersMessagePacket) {
             System.out.println("收到sendHeaders消息");
         } else if (packet instanceof PingMessagePacket) {
-            System.out.println("收到ping消息");
+            System.out.format("收到ping消息:%s", ((PingMessagePacket) packet).getNonce()).println();
+            if (((PingMessagePacket) packet).isHasNonce()) {
+                sendMessagePacket(ctx, new PongMessagePacket(((PingMessagePacket) packet).getNonce()));
+            }
+        } else if (packet instanceof PongMessagePacket) {
+            System.out.format("收到pong消息:%s", ((PongMessagePacket) packet).getNonce()).println();
+        } else if (packet instanceof AddressMessagePacket) {
+            AddressMessagePacket addrMessage = ((AddressMessagePacket) packet);
+            List<PeerAddress> peerAddrs = addrMessage.getAddresses();
+            System.out.format("收到addr消息, 地址数量%s， 地址：", addrMessage.addrSize());
+            for (PeerAddress address : peerAddrs) {
+                System.out.format("%s:%s", address.getAddr().getHostAddress(), address.getPort());
+            }
+            System.out.println();
+        } else if (packet instanceof GetAddrMessage) {
+            System.out.println("收到getAddr消息");
         } else {
             System.out.format("收到不支持数据:%s", packet.command).println();
         }
     }
 
     /**
-     * 发送消息应答
+     * 发送消息
      *
      * @param ctx
-     * @throws IOException
+     * @param packet
      */
-    public void sendVerAckPacket(ChannelHandlerContext ctx) {
-        VersionAckMessagePacket message = new VersionAckMessagePacket();
+    private void sendMessagePacket(ChannelHandlerContext ctx, MessagePacket packet) {
         ByteBuf resp = Unpooled.buffer();
-        message.serializePacket(resp);
+        packet.serializePacket(resp);
         ctx.write(resp);
         ctx.flush();
-        System.out.format("完成%s消息发送", message.command).println();
+        System.out.format("完成%s消息发送", packet.command).println();
     }
+
 }

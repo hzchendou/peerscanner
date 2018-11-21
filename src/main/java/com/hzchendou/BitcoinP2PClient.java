@@ -3,7 +3,7 @@ package com.hzchendou;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
-import com.hzchendou.handler.ConnectionVersionHandler;
+import com.hzchendou.handler.P2PMessagePacketHandler;
 import com.hzchendou.handler.codec.PacketDecoder;
 import com.hzchendou.model.seed.DNSDiscovery;
 
@@ -34,7 +34,7 @@ public class BitcoinP2PClient {
                 @Override
                 protected void initChannel(SocketChannel ch) throws Exception {
                     ch.pipeline().addLast("decoder", new PacketDecoder());
-                    ch.pipeline().addLast(new ConnectionVersionHandler());
+                    ch.pipeline().addLast(new P2PMessagePacketHandler());
                 }
             });
 
