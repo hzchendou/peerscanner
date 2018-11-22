@@ -26,6 +26,10 @@ import io.netty.channel.ChannelHandlerContext;
  */
 public class P2PMessagePacketHandler extends ChannelHandlerAdapter {
 
+    public P2PMessagePacketHandler() {
+        System.out.println("初始化解码器....");
+    }
+
     /**
      * 连接建立完成，发送version message
      *
@@ -98,7 +102,7 @@ public class P2PMessagePacketHandler extends ChannelHandlerAdapter {
             List<PeerAddress> peerAddrs = addrMessage.getAddresses();
             System.out.format("收到addr消息, 地址数量%s， 地址：", addrMessage.addrSize());
             for (PeerAddress address : peerAddrs) {
-                System.out.format("%s:%s", address.getAddr().getHostAddress(), address.getPort());
+                System.out.format("%s:%s", address.getAddr().getHostAddress(), address.getPort()).println();
             }
             System.out.println();
         } else if (packet instanceof GetAddrMessage) {

@@ -7,6 +7,7 @@ import java.net.UnknownHostException;
 import com.hzchendou.model.packet.MessagePacket;
 import com.hzchendou.model.packet.Packet;
 import com.hzchendou.model.packet.PacketPayload;
+import com.hzchendou.utils.IpUtils;
 import com.hzchendou.utils.TypeUtils;
 
 import io.netty.buffer.ByteBuf;
@@ -27,6 +28,11 @@ public class PeerAddress implements PacketPayload, Packet {
     public static final int UNKNOWN_LENGTH = Integer.MIN_VALUE;
 
     protected int length = UNKNOWN_LENGTH;
+
+    /**
+     * 是否需要序列化或者反序列化时间
+     */
+    private boolean needTime;
 
     protected MessagePacket parent;
 
@@ -93,6 +99,11 @@ public class PeerAddress implements PacketPayload, Packet {
      */
     @Override
     public void serializePacket(ByteBuf stream) {
+        //当父消息时version时不需要，其它消息需要序列化时间，比如addr
+        if (needTime) {
+            int secs = (int) System.currentTimeMillis();
+            TypeUtils.uint32ToByteBufLE(secs, stream);
+        }
         TypeUtils.uint64ToByteBufLE(services, stream);
         // Java does not provide any utility to map an IPv4 address into IPv6 space, so we have to do it by hand.
         byte[] ipBytes = addr.getAddress();
@@ -121,9 +132,9 @@ public class PeerAddress implements PacketPayload, Packet {
         //   16 bytes ip address
         //   2 bytes port num
         int cursor = 0;
-        if (isSerializeTime()) {
+        if (needTime) {
             time = readUint32(body, cursor);
-            time += 4;
+            cursor += 4;
         } else {
             time = -1;
         }
@@ -133,13 +144,19 @@ public class PeerAddress implements PacketPayload, Packet {
         byte[] addrBytes = readBytes(body, cursor, 16);
         cursor += 16;
         try {
+            //判断地址是Ipv4还是Ipv6
+            if (IpUtils.isIpv4(addrBytes)) {
+                byte[] addrCopy = addrBytes;
+                addrBytes = new byte[4];
+                System.arraycopy(addrCopy, 12, addrBytes, 0, addrBytes.length);
+            }
             addr = InetAddress.getByAddress(addrBytes);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);  // Cannot happen.
         }
         port = TypeUtils.readUint16BE(body, cursor);
         // The 4 byte difference is the uint32 timestamp that was introduced in version 31402
-        length = isSerializeTime() ? MESSAGE_SIZE : MESSAGE_SIZE - 4;
+        length = needTime ? MESSAGE_SIZE : MESSAGE_SIZE - 4;
 
     }
 
@@ -155,15 +172,15 @@ public class PeerAddress implements PacketPayload, Packet {
         return byteBuf.array();
     }
 
-    /**
-     * 是否需要序列化时间
-     *
-     * @return
-     */
-    private boolean isSerializeTime() {
-        return protocolVersion >= 31402 && !(parent instanceof VersionMessagePacket);
+
+    public boolean isNeedTime() {
+        return needTime;
     }
 
+    public PeerAddress setNeedTime(boolean needTime) {
+        this.needTime = needTime;
+        return this;
+    }
 
     public InetAddress getAddr() {
         return addr;

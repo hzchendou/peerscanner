@@ -45,12 +45,12 @@ public class AddressMessagePacket extends MessagePacket {
         }
         addresses = new ArrayList<>((int) numAddresses);
         for (int i = 0; i < numAddresses; i++) {
-            PeerAddress addr = PeerAddress.defaultPeerAddr(0);
-            byte[] addrBytes = new byte[PeerAddress.MESSAGE_SIZE - 4];
+            PeerAddress addr = PeerAddress.defaultPeerAddr(0).setNeedTime(Boolean.TRUE);
+            byte[] addrBytes = new byte[PeerAddress.MESSAGE_SIZE];
             System.arraycopy(body, cursor, addrBytes, 0, addrBytes.length);
             addr.deserialize(addrBytes);
             addresses.add(addr);
-            cursor += PeerAddress.MESSAGE_SIZE - 4;
+            cursor += PeerAddress.MESSAGE_SIZE;
         }
     }
 
